@@ -53,12 +53,16 @@ public class Login extends ActionBarActivity {
                         System.out.println("----------------------");
                         System.out.println("----------------------");
 
-
-
-
-
-
                         editor.putString("hash", reply.getString("id"));
+                        editor.putString("username", userNameField.getText().toString());
+                        if(sharedpreferences.getString("nortwestLat",null)!= null) {
+                            editor.putString("nortwestLat", reply.getString("northwestLat"));
+                            editor.putString("northwestLon", reply.getString("northwestLon"));
+                        }
+
+                        editor.putInt("soldiers", reply.getInt("soldiers"));
+                        editor.putInt("money", reply.getInt("money"));
+
                         editor.commit();
 
                         Intent intent = new Intent(Login.this, MainActivity.class);

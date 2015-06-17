@@ -1,17 +1,18 @@
 package serverconnection;
 
-import android.os.AsyncTask;
-
-import com.parasohjelmistoprojekti.bexit.MainActivity;
-
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpDelete;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -20,51 +21,44 @@ import org.json.JSONTokener;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
+import java.net.URL;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Formatter;
 import java.util.List;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.location.Location;
+import android.os.AsyncTask;
+import android.os.Handler;
+
+import com.parasohjelmistoprojekti.bexit.MainActivity;
 
 import entities.MapSquare;
 
 /**
- * Created by Esa on 10.3.2015.
+ * Created by Esa on 3.2.2015.
  */
-public class RegisterUser extends AsyncTask<String, Integer, JSONObject> {
+public class DestroyBase extends AsyncTask<Location, Integer, String> {
 
-    private String IP = "http://85.23.16.64:3000/users/userlist";
+    private String IP = "http://85.23.16.64:3000/users/base/";
 
-    protected JSONObject doInBackground(String... input) {
+    protected String doInBackground(Location... locations) {
 
         HttpClient httpClient = new DefaultHttpClient();
 
         try {
-            HttpPost request = new HttpPost(IP);
+            String IPtoUse = IP.concat(MainActivity.hashedImei);
+            HttpDelete request = new HttpDelete(IPtoUse);
             request.setHeader("Content-Type",
                     "application/x-www-form-urlencoded;charset=UTF-8");
-            JSONObject keyArg = new JSONObject();
-            keyArg.put("username", input[0]);
-            keyArg.put("email", input[1]);
-            keyArg.put("password", input[2]);
-
-            //request.setEntity(keyArg);
-
-            List<NameValuePair> pairs = new ArrayList<NameValuePair>();
-            pairs.add(new BasicNameValuePair("username", input[0]));
-            pairs.add(new BasicNameValuePair("email", input[1]));
-            pairs.add(new BasicNameValuePair("password", input[2]));
-            pairs.add(new BasicNameValuePair("money", "100"));
-            pairs.add(new BasicNameValuePair("soldiers", "50"));
-            request.setEntity(new UrlEncodedFormEntity(pairs));
-
-            request.setEntity(new UrlEncodedFormEntity(pairs, "UTF-8"));
-
 
             HttpResponse response = httpClient.execute(request);
-            BufferedReader reader = new BufferedReader(new InputStreamReader(response.getEntity().getContent(), "UTF-8"));
-            String json = reader.readLine();
-            System.out.println(json);
-            JSONTokener tokener = new JSONTokener(json);
-            JSONObject jsonObject = new JSONObject(tokener);
-            return jsonObject;
+            System.out.println(response.getEntity().toString());
+            return "Yay";
         }catch (Exception ex) {
             // handle exception here
         } finally {

@@ -17,6 +17,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdate;
@@ -41,6 +42,8 @@ import java.util.concurrent.ExecutionException;
 
 import entities.MapSquare;
 import serverconnection.ClaimSquare;
+import serverconnection.CreateBase;
+import serverconnection.DestroyBase;
 import serverconnection.GetSquares;
 import utilities.SHA1hasher;
 
@@ -48,8 +51,19 @@ import utilities.SHA1hasher;
 public class MainActivity extends ActionBarActivity {
 
     public static String hashedImei;
+    public static String username;
+
+    private TextView moneyText;
+    private TextView soldiersText;
+
     private GoogleMap googleMap;
     private ArrayList<MapSquare> currentSquares;
+
+    private double baseNorthwestLat;
+    private double baseNorthwestLon;
+
+    private boolean baseExistsAlready;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,6 +72,21 @@ public class MainActivity extends ActionBarActivity {
 
         currentSquares = new ArrayList<MapSquare>();
 
+        SharedPreferences sharedpreferences = getSharedPreferences("SharedPreferences", Context.MODE_PRIVATE);
+        hashedImei = sharedpreferences.getString("hash", "");
+        username = sharedpreferences.getString("username","");
+
+        baseNorthwestLat = 0;
+        baseNorthwestLon = 0;
+
+        if(sharedpreferences.getString("northwestLat",null)!=null){
+            baseExistsAlready = true;
+            baseNorthwestLat = Double.parseDouble(sharedpreferences.getString("northwestLat",null));
+            baseNorthwestLon = Double.parseDouble(sharedpreferences.getString("northwestLon",null));
+        }
+        else{
+            baseExistsAlready = false;
+        }
 
         //ROUNDING TESTS
             BigDecimal bd = new BigDecimal(10.473892);
@@ -85,6 +114,7 @@ public class MainActivity extends ActionBarActivity {
         final MyLocationListener locationListener = new MyLocationListener();
         LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5 * 1000, 10, locationListener);
+        lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5 * 1000, 10, locationListener);
 
         LatLng myPosition;
 
@@ -115,6 +145,12 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
+        moneyText = (TextView)findViewById(R.id.money_text);
+        moneyText.setText(Integer.toString(sharedpreferences.getInt("money",-1))+" money");
+
+        soldiersText = (TextView)findViewById(R.id.soldiers_text);
+        soldiersText.setText(Integer.toString(sharedpreferences.getInt("soldiers",-1))+" soldiers");
+
         Button refreshButton = (Button)findViewById(R.id.refresh);
         refreshButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -128,11 +164,45 @@ public class MainActivity extends ActionBarActivity {
                 } catch (ExecutionException e) {
                     e.printStackTrace();
                 } catch (NullPointerException e){
+                    e.printStackTrace();
                     Toast.makeText(MainActivity.this, "Not located yet!", Toast.LENGTH_LONG).show();
                 }
 
             }
         });
+
+        Button createBaseButton = (Button)findViewById(R.id.create_base);
+        if(baseExistsAlready){
+            createBaseButton.setText("Destroy base");
+            createBaseButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        new DestroyBase().execute(locationListener.location, locationListener.exactLocation).get();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
+        else{
+            createBaseButton.setText("Create base");
+            createBaseButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        new CreateBase().execute(locationListener.location,locationListener.exactLocation).get();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
+
 
         //Get location manager and location object of user
         LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
@@ -229,6 +299,20 @@ public class MainActivity extends ActionBarActivity {
 
     private void drawMap(ArrayList<MapSquare> squares){
         googleMap.clear();
+
+        PolygonOptions baserectOptions = new PolygonOptions()
+                .add(new LatLng(baseNorthwestLat,baseNorthwestLon))
+                .add(new LatLng(baseNorthwestLat,baseNorthwestLon+0.001))  // North of the previous point, but at the same longitude
+                .add(new LatLng(baseNorthwestLat+0.001,baseNorthwestLon+0.001))  // Same latitude, and 30km to the west
+                .add(new LatLng(baseNorthwestLat+0.001,baseNorthwestLon))  // Same longitude, and 16km to the south
+                .add(new LatLng(baseNorthwestLat,baseNorthwestLon))
+                .strokeColor(Color.BLACK)
+                .strokeWidth(1.0f)
+                .fillColor(Color.parseColor("#FF6666"))
+                .visible(true);
+
+        Polygon basepolyline = googleMap.addPolygon(baserectOptions);
+
         for(int i = 0; i < squares.size(); i++){
             System.out.println("Drawing Square");
             //Create points for polyline
@@ -306,14 +390,14 @@ public class MainActivity extends ActionBarActivity {
 
     private final class MyLocationListener implements LocationListener {
 
-
-
         public Location location;
         public Location exactLocation;
 
         @Override
         public void onLocationChanged(Location locFromGps) {
             // called when the listener is notified with a location update from the GPS
+            System.out.println("NEW LOCATIONS");
+
             location = locFromGps;
             exactLocation = locFromGps;
 
