@@ -31,6 +31,9 @@ import com.google.android.gms.maps.model.PolygonOptions;
 import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -45,6 +48,7 @@ import serverconnection.ClaimSquare;
 import serverconnection.CreateBase;
 import serverconnection.DestroyBase;
 import serverconnection.GetSquares;
+import serverconnection.LootSquare;
 import utilities.SHA1hasher;
 
 
@@ -64,6 +68,10 @@ public class MainActivity extends ActionBarActivity {
 
     private boolean baseExistsAlready;
 
+    private Button createBaseButton;
+    private Button lootSquareButton;
+
+    private MyLocationListener mLocationListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,14 +80,15 @@ public class MainActivity extends ActionBarActivity {
 
         currentSquares = new ArrayList<MapSquare>();
 
-        SharedPreferences sharedpreferences = getSharedPreferences("SharedPreferences", Context.MODE_PRIVATE);
+        final SharedPreferences sharedpreferences = getSharedPreferences("SharedPreferences", Context.MODE_PRIVATE);
         hashedImei = sharedpreferences.getString("hash", "");
         username = sharedpreferences.getString("username","");
 
         baseNorthwestLat = 0;
         baseNorthwestLon = 0;
 
-        if(sharedpreferences.getString("northwestLat",null)!=null){
+        if(sharedpreferences.getString("northwestLat",null)!=null && sharedpreferences.getString("northwestLat",null).equals("181.0")==false){
+            System.out.println("Base found");
             baseExistsAlready = true;
             baseNorthwestLat = Double.parseDouble(sharedpreferences.getString("northwestLat",null));
             baseNorthwestLon = Double.parseDouble(sharedpreferences.getString("northwestLon",null));
@@ -111,10 +120,10 @@ public class MainActivity extends ActionBarActivity {
 
 
         //Set up location listener
-        final MyLocationListener locationListener = new MyLocationListener();
+        mLocationListener = new MyLocationListener();
         LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5 * 1000, 10, locationListener);
-        lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5 * 1000, 10, locationListener);
+        lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5 * 1000, 10, mLocationListener);
+        lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5 * 1000, 10, mLocationListener);
 
         LatLng myPosition;
 
@@ -129,7 +138,7 @@ public class MainActivity extends ActionBarActivity {
                 Log.d("arg0", arg0.latitude + "-" + arg0.longitude);
                 String toast = "Lat: " + arg0.latitude + " Lng: " + arg0.longitude;
 
-                locationListener.getLocation();
+                mLocationListener.getLocation();
 
                 Toast.makeText(getApplicationContext(), toast, Toast.LENGTH_LONG).show();
                 int squareIndex =  checkIfInsideCurrentSquares(arg0);
@@ -156,8 +165,8 @@ public class MainActivity extends ActionBarActivity {
             @Override
             public void onClick(View v) {
                 try {
-                    System.out.println(locationListener.location.getLongitude());
-                    currentSquares = new GetSquares().execute(locationListener.location,locationListener.exactLocation).get();
+                    System.out.println(mLocationListener.location.getLongitude());
+                    currentSquares = new GetSquares().execute(mLocationListener.location,mLocationListener.exactLocation).get();
                     drawMap(currentSquares);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
@@ -171,40 +180,37 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
-        Button createBaseButton = (Button)findViewById(R.id.create_base);
-        if(baseExistsAlready){
-            createBaseButton.setText("Destroy base");
-            createBaseButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    try {
-                        new DestroyBase().execute(locationListener.location, locationListener.exactLocation).get();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
-                        e.printStackTrace();
-                    }
-                }
-            });
-        }
-        else{
-            createBaseButton.setText("Create base");
-            createBaseButton.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    try {
-                        new CreateBase().execute(locationListener.location,locationListener.exactLocation).get();
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
-                        e.printStackTrace();
-                    }
-                }
-            });
-        }
+        createBaseButton = (Button)findViewById(R.id.create_base);
+        lootSquareButton = (Button)findViewById(R.id.loot_area);
 
+        changeCreateBaseButton();
+
+        lootSquareButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    JSONObject lootresult = new LootSquare().execute(mLocationListener.location,mLocationListener.exactLocation).get();
+
+                    int newMoney = sharedpreferences.getInt("money", -1) + lootresult.getInt("lootedgold");
+                    sharedpreferences.edit().putInt("money", newMoney).commit();
+                    moneyText.setText(Integer.toString(newMoney)+ " money");
+
+                    int newSoldiers = sharedpreferences.getInt("soldiers", -1)-lootresult.getInt("lostsoldiers");
+                    sharedpreferences.edit().putInt("soldiers",newSoldiers).commit();
+                    soldiersText.setText(Integer.toString(newSoldiers)+" soldiers");
+
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
 
         //Get location manager and location object of user
+
         LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
         Criteria criteria = new Criteria();
         String provider = locationManager.getBestProvider(criteria, true);
@@ -262,13 +268,73 @@ public class MainActivity extends ActionBarActivity {
         final Runnable r = new Runnable() {
             public void run() {
                 //SEND CURRENT LOCATION TO GET SQUARES
-                handler.postDelayed(this, 1000);
+                try {
+                    System.out.println(mLocationListener.location.getLongitude());
+                    currentSquares = new GetSquares().execute(mLocationListener.location,mLocationListener.exactLocation).get();
+                    drawMap(currentSquares);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    e.printStackTrace();
+                } catch (NullPointerException e){
+                    e.printStackTrace();
+                    Toast.makeText(MainActivity.this, "Not located yet!", Toast.LENGTH_LONG).show();
+                }
+
+                handler.postDelayed(this, 1000*5);
             }
         };
 
-        handler.postDelayed(r, 1000);
+        handler.post(r);
 
 
+    }
+
+    private void changeCreateBaseButton(){
+        if(baseExistsAlready){
+            lootSquareButton.setEnabled(true);
+
+            createBaseButton.setText("Destroy base");
+            createBaseButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        new DestroyBase().execute(mLocationListener.location, mLocationListener.exactLocation).get();
+                        baseExistsAlready = false;
+                        baseNorthwestLat = 181;
+                        baseNorthwestLon = 181;
+                        Toast.makeText(MainActivity.this, "Base destroyed!", Toast.LENGTH_LONG);
+                        changeCreateBaseButton();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
+        else{
+            lootSquareButton.setEnabled(false);
+
+            createBaseButton.setText("Create base");
+            createBaseButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        JSONObject baseCreateObject = new CreateBase().execute(mLocationListener.location,mLocationListener.exactLocation).get();
+                        baseExistsAlready = true;
+                        baseNorthwestLat = mLocationListener.location.getLatitude();
+                        baseNorthwestLon = mLocationListener.location.getLongitude();
+                        Toast.makeText(MainActivity.this, "Base created!", Toast.LENGTH_SHORT);
+                        changeCreateBaseButton();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        }
     }
 
     private LatLng calculateOffset(LatLng original, int latDiff, int lonDiff){
@@ -300,18 +366,22 @@ public class MainActivity extends ActionBarActivity {
     private void drawMap(ArrayList<MapSquare> squares){
         googleMap.clear();
 
-        PolygonOptions baserectOptions = new PolygonOptions()
-                .add(new LatLng(baseNorthwestLat,baseNorthwestLon))
-                .add(new LatLng(baseNorthwestLat,baseNorthwestLon+0.001))  // North of the previous point, but at the same longitude
-                .add(new LatLng(baseNorthwestLat+0.001,baseNorthwestLon+0.001))  // Same latitude, and 30km to the west
-                .add(new LatLng(baseNorthwestLat+0.001,baseNorthwestLon))  // Same longitude, and 16km to the south
-                .add(new LatLng(baseNorthwestLat,baseNorthwestLon))
-                .strokeColor(Color.BLACK)
-                .strokeWidth(1.0f)
-                .fillColor(Color.parseColor("#FF6666"))
-                .visible(true);
+        if(baseExistsAlready) {
 
-        Polygon basepolyline = googleMap.addPolygon(baserectOptions);
+            System.out.println("Draw base: " + baseNorthwestLat + " " + baseNorthwestLon);
+            PolygonOptions baserectOptions = new PolygonOptions()
+                    .add(new LatLng(baseNorthwestLat, baseNorthwestLon))
+                    .add(new LatLng(baseNorthwestLat, baseNorthwestLon + 0.001))  // North of the previous point, but at the same longitude
+                    .add(new LatLng(baseNorthwestLat + 0.001, baseNorthwestLon + 0.001))  // Same latitude, and 30km to the west
+                    .add(new LatLng(baseNorthwestLat + 0.001, baseNorthwestLon))  // Same longitude, and 16km to the south
+                    .add(new LatLng(baseNorthwestLat, baseNorthwestLon))
+                    .strokeColor(Color.BLACK)
+                    .strokeWidth(1.0f)
+                    .fillColor(Color.parseColor("#FF6666"))
+                    .visible(true);
+
+            Polygon basepolyline = googleMap.addPolygon(baserectOptions);
+        }
 
         for(int i = 0; i < squares.size(); i++){
             System.out.println("Drawing Square");

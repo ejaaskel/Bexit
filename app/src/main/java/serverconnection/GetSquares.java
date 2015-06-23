@@ -40,7 +40,7 @@ import entities.MapSquare;
  */
 public class GetSquares extends AsyncTask<Location, Integer, ArrayList<MapSquare>> {
 
-    private String IP = "http://85.23.16.64:3000/locations/getlocation";
+    private String IP = "http://ec2-52-28-147-181.eu-central-1.compute.amazonaws.com:3000/locations/getlocation";
 
     protected ArrayList<MapSquare> doInBackground(Location... locations) {
 

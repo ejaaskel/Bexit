@@ -42,11 +42,11 @@ import entities.MapSquare;
 /**
  * Created by Esa on 3.2.2015.
  */
-public class LootSquare extends AsyncTask<Location, Integer, String> {
+public class LootSquare extends AsyncTask<Location, Integer, JSONObject> {
 
-    private String IP = "http://85.23.16.64:3000/locations/location/loot/";
+    private String IP = "http://ec2-52-28-147-181.eu-central-1.compute.amazonaws.com:3000/locations/location/loot/";
 
-    protected String doInBackground(Location... locations) {
+    protected JSONObject doInBackground(Location... locations) {
 
         HttpClient httpClient = new DefaultHttpClient();
 
@@ -63,9 +63,11 @@ public class LootSquare extends AsyncTask<Location, Integer, String> {
             pairs.add(new BasicNameValuePair("exactNorthwestLon", Double.toString(locations[1].getLongitude())));
             pairs.add(new BasicNameValuePair("username", MainActivity.username));
 
+            request.setEntity(new UrlEncodedFormEntity(pairs, "UTF-8"));
+
             HttpResponse response = httpClient.execute(request);
             System.out.println(response.getEntity().toString());
-            return "Yay";
+            return parseResult(response);
         }catch (Exception ex) {
             // handle exception here
         } finally {
@@ -82,26 +84,16 @@ public class LootSquare extends AsyncTask<Location, Integer, String> {
     protected void onPostExecute(Long result) {
     }
 
-    private ArrayList<MapSquare> parseResult(HttpResponse response){
+    private JSONObject parseResult(HttpResponse response){
         BufferedReader reader = null;
         try {
             reader = new BufferedReader(new InputStreamReader(response.getEntity().getContent(), "UTF-8"));
             String json = reader.readLine();
             System.out.println(json);
             JSONTokener tokener = new JSONTokener(json);
-            JSONArray jsonArray = new JSONArray(tokener);
-            ArrayList<MapSquare> parsedSquares = new ArrayList<MapSquare>();
-            for(int i = 0; i < jsonArray.length(); i++){
-                JSONObject jsonObject = jsonArray.getJSONObject(i);
-                MapSquare mapSquare = new MapSquare(jsonObject.getString("_id"),
-                        Double.parseDouble(jsonObject.getString("northwestLon")),
-                        Double.parseDouble(jsonObject.getString("northwestLat")),
-                        Double.parseDouble(jsonObject.getString("southeastLon")),
-                        Double.parseDouble(jsonObject.getString("southeastLat")),
-                        jsonObject.getString("ownerHash"));
-                parsedSquares.add(mapSquare);
-            }
-            return parsedSquares;
+            JSONObject jsonObject = new JSONObject(tokener);
+
+            return jsonObject;
         } catch (IOException e) {
             e.printStackTrace();
         } catch (JSONException e) {

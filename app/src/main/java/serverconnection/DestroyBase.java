@@ -44,7 +44,7 @@ import entities.MapSquare;
  */
 public class DestroyBase extends AsyncTask<Location, Integer, String> {
 
-    private String IP = "http://85.23.16.64:3000/users/base/";
+    private String IP = "http://ec2-52-28-147-181.eu-central-1.compute.amazonaws.com:3000/users/base/";
 
     protected String doInBackground(Location... locations) {
 

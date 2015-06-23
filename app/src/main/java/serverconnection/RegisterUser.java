@@ -30,7 +30,7 @@ import entities.MapSquare;
  */
 public class RegisterUser extends AsyncTask<String, Integer, JSONObject> {
 
-    private String IP = "http://85.23.16.64:3000/users/userlist";
+    private String IP = "http://ec2-52-28-147-181.eu-central-1.compute.amazonaws.com:3000/users/userlist";
 
     protected JSONObject doInBackground(String... input) {
 

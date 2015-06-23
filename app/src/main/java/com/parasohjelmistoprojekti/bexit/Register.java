@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.concurrent.ExecutionException;
@@ -35,9 +36,15 @@ public class Register extends ActionBarActivity {
                 if(password.getText().toString().equals(confirmPassword.getText().toString())){
                     try {
                         JSONObject reply = new RegisterUser().execute(userNameField.getText().toString(), emailField.getText().toString(), password.getText().toString()).get();
+                        if(reply.getString("msg").trim().length() == 0){
+                            Toast.makeText(Register.this, "Registered succesfully, you can now login", Toast.LENGTH_LONG).show();
+                            finish();
+                        }
                     } catch (InterruptedException e) {
                         e.printStackTrace();
                     } catch (ExecutionException e) {
+                        e.printStackTrace();
+                    } catch (JSONException e) {
                         e.printStackTrace();
                     }
                 }

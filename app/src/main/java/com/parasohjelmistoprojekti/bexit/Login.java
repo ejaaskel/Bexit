@@ -14,6 +14,7 @@ import android.widget.Toast;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.sql.SQLException;
 import java.util.concurrent.ExecutionException;
 
 import serverconnection.LoginUser;
@@ -55,9 +56,15 @@ public class Login extends ActionBarActivity {
 
                         editor.putString("hash", reply.getString("id"));
                         editor.putString("username", userNameField.getText().toString());
-                        if(sharedpreferences.getString("nortwestLat",null)!= null) {
-                            editor.putString("nortwestLat", reply.getString("northwestLat"));
-                            editor.putString("northwestLon", reply.getString("northwestLon"));
+                        try {
+                            if (reply.getString("northwestLat") != null) {
+                                editor.putString("northwestLat", reply.getString("northwestLat"));
+                                editor.putString("northwestLon", reply.getString("northwestLon"));
+                            }
+                        }catch(JSONException e){
+e.printStackTrace();
+                            editor.putString("northwestLat", "181.0");
+                            editor.putString("northwestLon", "181.0");
                         }
 
                         editor.putInt("soldiers", reply.getInt("soldiers"));
@@ -69,6 +76,7 @@ public class Login extends ActionBarActivity {
                         startActivity(intent);
                     }
                     else{
+                        Toast.makeText(Login.this, "Login unsuccesful, check username and password", Toast.LENGTH_LONG).show();
                         System.out.println("Unsuccesful");
                     }
                 } catch (InterruptedException e) {
