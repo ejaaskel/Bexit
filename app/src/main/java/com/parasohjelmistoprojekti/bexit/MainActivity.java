@@ -97,7 +97,7 @@ public class MainActivity extends ActionBarActivity {
             baseExistsAlready = false;
         }
 
-        //ROUNDING TESTS
+        //ROUNDING TESTS; these should be removed
             BigDecimal bd = new BigDecimal(10.473892);
             bd = bd.setScale(3, RoundingMode.HALF_UP);
             System.out.println(bd.doubleValue());
@@ -108,6 +108,13 @@ public class MainActivity extends ActionBarActivity {
             latitudeTest = (double) tmp / factor;
             System.out.println(latitudeTest);
 
+            int lastDigit =Integer.parseInt(Character.toString(Double.toString(latitudeTest).charAt(Double.toString(latitudeTest).length()-1)));
+        //new DecimalFormat("#.###").format(latitudeTest);
+            if(lastDigit%2 == 1){
+                latitudeTest = latitudeTest + 0.001;
+                System.out.println("Rounded: "+new DecimalFormat("#.###").format(latitudeTest));
+            }
+
             factor = (long) Math.pow(10,3);
             double longitudeTest = 32.5478392 * factor;
             tmp = (long) longitudeTest;
@@ -117,7 +124,11 @@ public class MainActivity extends ActionBarActivity {
             bd = new BigDecimal(-53.48927);
             bd = bd.setScale(3, RoundingMode.HALF_UP);
             System.out.println(bd.doubleValue());
-
+            lastDigit =Integer.parseInt(Character.toString(Double.toString(bd.doubleValue()).charAt(Double.toString(bd.doubleValue()).length()-1)));
+            if(lastDigit%2 == 1){
+                double test = bd.doubleValue() + 0.001;
+                System.out.println("Rounded: "+test);
+            }
 
         //Set up location listener
         mLocationListener = new MyLocationListener();
@@ -154,6 +165,7 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
+        //Set textviews for money and soldiers
         moneyText = (TextView)findViewById(R.id.money_text);
         moneyText.setText(Integer.toString(sharedpreferences.getInt("money",-1))+" money");
 
@@ -180,6 +192,7 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
+        //set up button for creation/deletion of base and looting of square
         createBaseButton = (Button)findViewById(R.id.create_base);
         lootSquareButton = (Button)findViewById(R.id.loot_area);
 
@@ -263,6 +276,7 @@ public class MainActivity extends ActionBarActivity {
         }
 
 
+        //Set up handler for fetching and sending location
         final Handler handler = new Handler();
 
         final Runnable r = new Runnable() {
@@ -290,7 +304,9 @@ public class MainActivity extends ActionBarActivity {
 
     }
 
+    //Function to change create button to delete button and vice versa
     private void changeCreateBaseButton(){
+        //if base exists turn button to delete button
         if(baseExistsAlready){
             lootSquareButton.setEnabled(true);
 
@@ -313,6 +329,7 @@ public class MainActivity extends ActionBarActivity {
                 }
             });
         }
+        //else turn button to create base button
         else{
             lootSquareButton.setEnabled(false);
 
@@ -337,6 +354,7 @@ public class MainActivity extends ActionBarActivity {
         }
     }
 
+    //not currently used, but can be useful
     private LatLng calculateOffset(LatLng original, int latDiff, int lonDiff){
         //This function calculates new point for latlng object when difference is given meters
         //Position, decimal degrees
@@ -362,7 +380,7 @@ public class MainActivity extends ActionBarActivity {
 
     }
 
-
+    //draw base and squares server returned to map
     private void drawMap(ArrayList<MapSquare> squares){
         googleMap.clear();
 
@@ -415,7 +433,7 @@ public class MainActivity extends ActionBarActivity {
                 rectOptions.fillColor(Color.parseColor("#550000FF"));
             }
             else            if(squares.get(i).getType().equals("otherPlace")){
-                rectOptions.fillColor(Color.parseColor("#55aaFFaa"));
+                rectOptions.fillColor(Color.parseColor("#55aaAAaa"));
             }
 
             // Get back the mutable Polyline
@@ -466,16 +484,20 @@ public class MainActivity extends ActionBarActivity {
         @Override
         public void onLocationChanged(Location locFromGps) {
             // called when the listener is notified with a location update from the GPS
-            System.out.println("NEW LOCATIONS");
-
+            //exact location is stored, and location is the "square" player is currently in
+            //location is the northwest corner of square, and is rounded value of exact value rounded to three decimal poitns
             location = locFromGps;
             exactLocation = locFromGps;
 
+
+            //rounding of location
+            //if we are on northern hempisphere: round up
             if(location.getLatitude()>0){
                 BigDecimal bd = new BigDecimal(location.getLatitude());
                 bd = bd.setScale(3, RoundingMode.HALF_UP);
                 location.setLatitude(bd.doubleValue());
             }
+            //else southern hemisphere: round down
             else{
                 System.out.println(location.getLatitude());
                 long factor = (long) Math.pow(10,3);
@@ -486,6 +508,7 @@ public class MainActivity extends ActionBarActivity {
                 location.setLatitude(latitude);
             }
 
+            //if on eastern hemisphere, round down
             if(location.getLongitude()>0){
                 System.out.println(location.getLongitude());
                 long factor = (long) Math.pow(10,3);
@@ -495,53 +518,13 @@ public class MainActivity extends ActionBarActivity {
                 System.out.println(longitude);
                 location.setLongitude(longitude);
             }
+            //if on western hempishere: round up
             else{
                 BigDecimal bd = new BigDecimal(location.getLongitude());
                 bd = bd.setScale(3, RoundingMode.HALF_UP);
                 location.setLongitude(bd.doubleValue());
             }
 
-            /*//ROUND LATITUDE DOWN to either 0 or 5
-            if(latString.substring(2).equals("1")||latString.substring(2).equals("2")||latString.substring(2).equals("3")||latString.substring(2).equals("4")){
-                //replace old
-                latString = latString.substring(0,2) + "0";
-            }
-            else if(latString.substring(2).equals("6")||latString.substring(2).equals("7")||latString.substring(2).equals("8")||latString.substring(2).equals("9")){
-                latString = latString.substring(0,2) + "5";
-            }
-
-            //On northern hemisphere (lon > 0) longitude needs to be rounded up, away from zero, towatds north pole
-            if(location.getLongitude() > 0){
-                if(lonString.substring(2).equals("1")||lonString.substring(2).equals("2")||lonString.substring(2).equals("3")||lonString.substring(2).equals("4")){
-                    String lastdecimal = lonString.substring(2);
-                    String adder = "0.00"+ Integer.toString(5 - Integer.parseInt(lastdecimal));
-                    double result =  location.getLongitude() + Double.parseDouble(adder);
-                    lonString = Double.toString(result);
-                }
-                else if(lonString.substring(2).equals("6")||lonString.substring(2).equals("7")||lonString.substring(2).equals("8")||lonString.substring(2).equals("9")){
-                    String lastdecimal = lonString.substring(2);
-                    String adder = "0.00"+ Integer.toString(10 - Integer.parseInt(lastdecimal));
-                    double result =  location.getLongitude() + Double.parseDouble(adder);
-                    lonString = Double.toString(result);
-                }
-            }
-
-            //On southern hemisphere longituide needs to be rounded down, towards zero, towards north pole
-            else{
-                if(lonString.substring(2).equals("1")||lonString.substring(2).equals("2")||lonString.substring(2).equals("3")||lonString.substring(2).equals("4")){
-                    String lastdecimal = lonString.substring(2);
-                    String subtracter = "0.00"+ Integer.toString(Integer.parseInt(lastdecimal));
-                    double result =  location.getLongitude() - Double.parseDouble(subtracter);
-                    lonString = Double.toString(result);
-                }
-                else if(lonString.substring(2).equals("6")||lonString.substring(2).equals("7")||lonString.substring(2).equals("8")||lonString.substring(2).equals("9")){
-                    String lastdecimal = lonString.substring(2);
-                    String subtracter = "0.00"+ Integer.toString(5 + Integer.parseInt(lastdecimal));
-                    double result =  location.getLongitude() + Double.parseDouble(subtracter);
-                    lonString = Double.toString(result);
-                }
-            }
-*/
             System.out.println(location.getLatitude());
             System.out.println(location.getLongitude());
         }
